@@ -1,0 +1,26 @@
+{
+    "irc": 9101,
+    "port": 9100,
+    "time_zone": "Europe/Kiev",
+    "max_thread": 25,
+    
+    "db_log_host": "127.0.0.1",
+    "db_log_port": 3306,
+    "db_log_user": "user",
+    "db_log_pwd": "name",
+    "db_log_name": "log",
+
+    "db_b2b_host": "127.0.0.1",
+    "db_b2b_port": 3306,
+    "db_b2b_user": "user",
+    "db_b2b_pwd": "name",
+    "db_b2b_name": "b2b",
+
+    "db_local_host": "127.0.0.1",
+    "db_local_port": 3306,
+    "db_local_user": "user",
+    "db_local_pwd": "name",
+    "db_local_name": "local",
+
+    "salt": "salt112233",
+}

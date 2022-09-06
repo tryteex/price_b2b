@@ -1,0 +1,16 @@
+[package]
+name = "brain_b2b"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+chrono="0.4"
+serde_json="1.0"
+byteorder="1.4"
+cast="0.3"
+urlencoding="2.1"
+mysql="22.2"
+sha2="0.10"
+glob="0.3"
