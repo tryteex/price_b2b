@@ -1,11 +1,11 @@
 use std::{collections::{HashMap, hash_map::Entry}};
 
-use crate::{STOCK_CAPACITY, PRODUCT_CAPACITY, BONUS_COMPANY_CAPACITY, BONUS_GROUP_CAPACITY, LOCK_CAPACITY, TARGET_CAPACITY, COUNTRY_CAPACITY, AUTH_COMPANY_CAPACITY, AUTH_USER_CAPACITY};
+use crate::{STOCK_CAPACITY, PRODUCT_CAPACITY, BONUS_COMPANY_CAPACITY, BONUS_GROUP_CAPACITY, LOCK_CAPACITY, TARGET_CAPACITY, COUNTRY_CAPACITY, AUTH_COMPANY_CAPACITY, AUTH_USER_CAPACITY, LOCK_ITEM_CAPACITY};
 
 #[derive(Debug)]
 pub struct Store {
     version: u32,
-    stock: HashMap<u32, ProductStock>,
+    pub stock: HashMap<u32, ProductStock>,
 }
 
 impl Store {
@@ -53,10 +53,10 @@ impl Store {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProductStock {
     version: u32,
-    product: HashMap<u32, Stock>,
+    pub product: HashMap<u32, Stock>,
 }
 
 impl ProductStock {
@@ -107,11 +107,11 @@ impl ProductStock {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Stock {
     version: u32,
-    available: u32,
-    day: u32,
+    pub available: u32,
+    pub day: u32,
 }
 
 impl Stock {
@@ -126,7 +126,7 @@ impl Stock {
 
 #[derive(Debug)]
 pub struct Bg {
-    bg: HashMap<u32, BonusGroup>,
+    pub bg: HashMap<u32, BonusGroup>,
     version: u32,
 }
 
@@ -166,10 +166,10 @@ impl Bg {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BonusGroup {
     version: u32, 
-    groups: HashMap<String, u32>,
+    pub groups: HashMap<String, u32>,
 }
 
 impl BonusGroup {
@@ -195,8 +195,8 @@ impl BonusGroup {
 #[derive(Debug)]
 pub struct Products {
     version: u32, 
-    product: HashMap<u32, Product>,
-    code: HashMap<String, u32>,
+    pub product: HashMap<u32, Product>,
+    pub code: HashMap<String, u32>,
 }
     
 impl Products {
@@ -219,7 +219,7 @@ impl Products {
         }
     }
 
-    pub fn update(&mut self, product_id: u32, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: u32, category_id: u32, warranty: String, ddp: bool, country_id: u32) {
+    pub fn update(&mut self, product_id: u32, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: i32, category_id: u32, warranty: String, ddp: bool, country_id: u32) {
         match self.product.entry(product_id) {
             Entry::Occupied(o) => {
                 let p = o.into_mut();
@@ -241,7 +241,7 @@ impl Products {
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
-                    bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, ddp, country_id
+                    bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, ddp, country_id, 0
                 );
                 v.insert(p);
             },
@@ -269,14 +269,14 @@ impl Products {
                 let p = Product::new(0, self.version, 0, 
                     "".to_owned(), "".to_owned(), "".to_owned(), group_ua, group_ru, desc_ua, desc_ru, category_ua, category_ru, url_ua, url_ru, class_ua, class_ru, 
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
-                    0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0
+                    0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0, 0
                 );
                 v.insert(p);
             },
         };
     }
 
-    pub fn update_str(&mut self, product_id: u32, code: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, ua: String, ru: String, uktved: String) {
+    pub fn update_str(&mut self, product_id: u32, code: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, ua: String, ru: String, uktved: String, is_exclusive: u32) {
         if let Entry::Vacant(v) = self.code.entry(code.clone()) {
             v.insert(product_id);
         }
@@ -294,13 +294,15 @@ impl Products {
                 p.ua = ua;
                 p.ru = ru;
                 p.uktved = uktved;
+                p.is_exclusive = is_exclusive;
             },
             Entry::Vacant(v) => {
                 let p = Product::new(0, 0, self.version, 
                     code, ua, ru, "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
                     bg, ean, seller, article, vendor, model, uktved, "".to_owned(), 
-                    0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0
+                    0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0,
+                    is_exclusive
                 );
                 v.insert(p);
             },
@@ -317,47 +319,48 @@ impl Products {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Product {
     version_1: u32, 
     version_2: u32, 
     version_3: u32, 
 
-    code: String, 
-    ua: String, 
-    ru: String, 
-    group_ua: String, 
-    group_ru: String, 
-    desc_ua: String, 
-    desc_ru: String, 
-    category_ua: String, 
-    category_ru: String, 
-    url_ua: String, 
-    url_ru: String, 
-    class_ua: String, 
-    class_ru: String, 
-    bg: String, 
-    ean: String, 
-    seller: String, 
-    article: String, 
-    vendor: String, 
-    model: String, 
-    uktved: String, 
-    warranty: String, 
-    bonus: f32,
-    vendor_id: u32,
-    group_id: u32,
-    class_id: u32,
-    weight: f32,
-    volume: f32,
-    overall: u32,
-    category_id: u32,
-    ddp: bool,
-    country_id: u32,
+    pub code: String, 
+    pub ua: String, 
+    pub ru: String, 
+    pub group_ua: String, 
+    pub group_ru: String, 
+    pub desc_ua: String, 
+    pub desc_ru: String, 
+    pub category_ua: String, 
+    pub category_ru: String, 
+    pub url_ua: String, 
+    pub url_ru: String, 
+    pub class_ua: String, 
+    pub class_ru: String, 
+    pub bg: String, 
+    pub ean: String, 
+    pub seller: String, 
+    pub article: String, 
+    pub vendor: String, 
+    pub model: String, 
+    pub uktved: String, 
+    pub warranty: String, 
+    pub bonus: f32,
+    pub vendor_id: u32,
+    pub group_id: u32,
+    pub class_id: u32,
+    pub weight: f32,
+    pub volume: f32,
+    pub overall: i32,
+    pub category_id: u32,
+    pub ddp: bool,
+    pub country_id: u32,
+    pub is_exclusive: u32,
 }
     
 impl Product {
-    pub fn new(version_1: u32, version_2: u32, version_3: u32, code: String, ua: String, ru: String, group_ua: String, group_ru: String, desc_ua: String, desc_ru: String, category_ua: String, category_ru: String, url_ua: String, url_ru: String, class_ua: String, class_ru: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, uktved: String, warranty: String, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: u32, category_id: u32, ddp: bool, country_id: u32,) -> Product {
+    pub fn new(version_1: u32, version_2: u32, version_3: u32, code: String, ua: String, ru: String, group_ua: String, group_ru: String, desc_ua: String, desc_ru: String, category_ua: String, category_ru: String, url_ua: String, url_ru: String, class_ua: String, class_ru: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, uktved: String, warranty: String, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: i32, category_id: u32, ddp: bool, country_id: u32, is_exclusive: u32,) -> Product {
         Product {
             version_1,
             version_2,
@@ -393,13 +396,14 @@ impl Product {
             category_id,
             ddp,
             country_id,
+            is_exclusive,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct Locks {
-    lock: HashMap<u32, Lock>,
+    pub lock: HashMap<u32, LockList>,
     version: u32,
 }
 
@@ -416,7 +420,42 @@ impl Locks {
     }
 
     pub fn update(&mut self, company_id: u32, vendor_id: u32, group_id: u32, class_id: u32, product_id: u32) {
-        match self.lock.entry(company_id) {
+        let l = match self.lock.entry(company_id) {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(v) => v.insert(LockList::new()),
+        };
+        l.update(self.version, vendor_id, group_id, class_id, product_id);
+    }
+
+    pub fn clear_old(&mut self) {
+        self.lock.retain(|_, l| {
+            if l.version != self.version {
+                return false;
+            }
+            l.clear_old();
+            true
+        });
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LockList {
+    pub list: HashMap<String, Lock>,
+    version: u32,
+}
+
+impl LockList {
+    pub fn new() -> LockList{
+        LockList {
+            list: HashMap::with_capacity(LOCK_ITEM_CAPACITY),
+            version: 0,
+        }
+    }
+
+    pub fn update(&mut self, version: u32, vendor_id: u32, group_id: u32, class_id: u32, product_id: u32) {
+        self.version = version;
+        let key = format!("{}:{}:{}:{}", vendor_id, group_id, class_id, product_id);
+        match self.list.entry(key) {
             Entry::Occupied(o) => {
                 let l = o.into_mut();
                 l.version = self.version;
@@ -433,13 +472,13 @@ impl Locks {
     }
 
     pub fn clear_old(&mut self) {
-        self.lock.retain(|_, l| {
-            self.version == l.version
+        self.list.retain(|_, l| {
+            l.version == self.version
         });
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lock {
     version: u32, 
     vendor_id: u32, 
@@ -462,7 +501,7 @@ impl Lock {
 
 #[derive(Debug)]
 pub struct Targets {
-    target: HashMap<u32, Target>,
+    pub target: HashMap<u32, Target>,
     version: u32,
 }
 
@@ -504,15 +543,15 @@ impl Targets {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Target {
     version: u32, 
-    region_stock: bool, 
-    stock_id: u32, 
-    postage_compact: f32, 
-    postage_middle: f32, 
-    postage_big: f32, 
-    postage_large: f32,
+    pub region_stock: bool, 
+    pub stock_id: u32, 
+    pub postage_compact: f32, 
+    pub postage_middle: f32, 
+    pub postage_big: f32, 
+    pub postage_large: f32,
 }
 
 impl Target {
@@ -531,7 +570,7 @@ impl Target {
 
 #[derive(Debug)]
 pub struct World {
-    countries: HashMap<u32, Country>,
+    pub countries: HashMap<u32, Country>,
 }
 
 impl World {
@@ -556,10 +595,10 @@ impl World {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Country {
-    ua: String,
-    ru: String,
+    pub ua: String,
+    pub ru: String,
 }
 
 impl Country {

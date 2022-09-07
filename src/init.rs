@@ -260,9 +260,9 @@ impl Init {
         let salt: String = match val.get("salt") {
             Some(salt) => match salt.as_str() {
                 Some(salt) => salt.to_owned(),
-                None => log.exit(137, ""),
+                None => log.exit(141, ""),
             },
-            None => log.exit(136, ""),
+            None => log.exit(140, ""),
         };
 
         Init {app, port, irc, time_zone, max: max.into(), db_log, db_b2b, db_local, dir: dir.to_owned(), salt, }

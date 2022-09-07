@@ -16,13 +16,13 @@ pub struct Cache {
     pub load: bool,
 
     pub auth: Arc<Mutex<Auth>>,
-    kurs: Arc<Mutex<f32>>,
-    country: Arc<Mutex<World>>,
-    target: Arc<Mutex<Targets>>,
-    lock: Arc<Mutex<Locks>>,
-    product: Arc<Mutex<Products>>,
-    stock: Arc<Mutex<Store>>,
-    bg: Arc<Mutex<Bg>>,
+    pub kurs: Arc<Mutex<f32>>,
+    pub world: Arc<Mutex<World>>,
+    pub target: Arc<Mutex<Targets>>,
+    pub lock: Arc<Mutex<Locks>>,
+    pub product: Arc<Mutex<Products>>,
+    pub stock: Arc<Mutex<Store>>,
+    pub bg: Arc<Mutex<Bg>>,
 }
 
 impl Cache {
@@ -36,7 +36,7 @@ impl Cache {
             
             auth: Arc::new(Mutex::new(Auth::new())),
             kurs: Arc::new(Mutex::new(0.0)),
-            country: Arc::new(Mutex::new(World::new())),
+            world: Arc::new(Mutex::new(World::new())),
             target: Arc::new(Mutex::new(Targets::new())),
             lock: Arc::new(Mutex::new(Locks::new())),
             product: Arc::new(Mutex::new(Products::new())),
@@ -242,7 +242,7 @@ impl Cache {
         let world;
         {
             let c = Mutex::lock(&cache).unwrap();
-            world = Arc::clone(&c.country);
+            world = Arc::clone(&c.world);
         }
         let sql = "
             SELECT countryID, name_ua, name_ru FROM delivery_country
@@ -349,7 +349,7 @@ impl Cache {
         ";
         match db.query(sql) {
             Some(result) => {
-                let row: Vec<(u32, f32, u32, u32, u32, f32, f32, u32, u32, String, bool, u32)> = result;
+                let row: Vec<(u32, f32, u32, u32, u32, f32, f32, i32, u32, String, bool, u32)> = result;
                 for (product_id, bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, warranty, ddp, country_id) in row {
                     let mut p = Mutex::lock(&product).unwrap();
                     p.update(product_id, bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, warranty, ddp, country_id);
@@ -385,7 +385,8 @@ impl Cache {
             SELECT
                 p.productID AS ProductID, p.product_code AS Code, IFNULL(p.bg_code, '') as BG, IFNULL(p.EAN, '') AS EAN, IFNULL(p.sellerCode, '') AS sc, 
                 IFNULL(p.articul, '') AS Article, IFNULL(v.name, '') AS Vendor, IFNULL(p.model, '') AS Model, 
-                IFNULL(p.name_ua, '') AS NameUa, IFNULL(p.name_ru, '') AS NameRu, IFNULL(p.koduktved, '') AS UKTVED
+                IFNULL(p.name_ua, '') AS NameUa, IFNULL(p.name_ru, '') AS NameRu, IFNULL(p.koduktved, '') AS UKTVED,
+                p.is_exclusive
             FROM 
                 SC_products p
                 LEFT JOIN SC_vendors v ON v.vendorID = p.vendorID
@@ -393,10 +394,10 @@ impl Cache {
         ";
         match db.query(sql) {
             Some(result) => {
-                let row: Vec<(u32, String, String, String, String, String, String, String, String, String, String)> = result;
-                for (product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved) in row {
+                let row: Vec<(u32, String, String, String, String, String, String, String, String, String, String, u32)> = result;
+                for (product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved, is_exclusive) in row {
                     let mut p = Mutex::lock(&product).unwrap();
-                    p.update_str(product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved);
+                    p.update_str(product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved, is_exclusive);
                 }
             },
             None => return false,

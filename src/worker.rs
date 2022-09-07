@@ -1,5 +1,7 @@
 use std::{net::TcpStream, sync::{Mutex, Arc, mpsc, RwLock}, thread::{JoinHandle, self}, collections::HashMap};
 
+use chrono::Local;
+
 use crate::{go::Go, init::Init, log::Log, fastcgi::{Record, FASTCGI_MAX_REQUEST_LEN, FastCGI, RecordType, HeaderType, ContentData}, price::Price, cache::Cache};
 
 #[derive(Debug)]
@@ -188,8 +190,10 @@ impl Worker {
                                 w.status = Status::Work;
                             }
                             // Start
-                            let price = Price::new(Arc::clone(&worker));
+                            let mut price = Price::new(Arc::clone(&worker));
+                            println!("start price {}", Local::now().format("%Y.%m.%d %H:%M:%S%.9f %:z").to_string()); 
                             let answer = price.calc(param_record);
+                            println!("finish price {}", Local::now().format("%Y.%m.%d %H:%M:%S%.9f %:z").to_string()); 
                             {
                                 let mut w = Mutex::lock(&worker).unwrap();
                                 w.status = Status::End;
