@@ -20,7 +20,7 @@ impl Store {
         self.version = self.version.wrapping_add(1);
     }
 
-    pub fn update_available(&mut self, stock_id: u32, product_id: u32, available: u32) {
+    pub fn update_available(&mut self, stock_id: u32, product_id: u32, available: String) {
         let stock = match self.stock.entry(stock_id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
@@ -31,7 +31,7 @@ impl Store {
         stock.update_available(self.version, product_id, available);
     }
     
-    pub fn update_day(&mut self, stock_id: u32, product_id: u32, day: u32) {
+    pub fn update_day(&mut self, stock_id: u32, product_id: u32, day: String) {
         let stock = match self.stock.entry(stock_id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
@@ -67,7 +67,7 @@ impl ProductStock {
         }
     }
 
-    pub fn update_available(&mut self, version: u32, product_id: u32, available: u32) {
+    pub fn update_available(&mut self, version: u32, product_id: u32, available: String) {
         self.version = version;
         match self.product.entry(product_id) {
             Entry::Occupied(o) => {
@@ -76,13 +76,13 @@ impl ProductStock {
                 s.available = available;
             },
             Entry::Vacant(v) => {
-                let s = Stock::new(version, available, 0);
+                let s = Stock::new(version, available, "0".to_owned());
                 v.insert(s);
             },
         };
     }
     
-    pub fn update_day(&mut self, version: u32, product_id: u32, day: u32) {
+    pub fn update_day(&mut self, version: u32, product_id: u32, day: String) {
         self.version = version;
         match self.product.entry(product_id) {
             Entry::Occupied(o) => {
@@ -91,7 +91,7 @@ impl ProductStock {
                 s.day = day;
             },
             Entry::Vacant(v) => {
-                let s = Stock::new(version, 0, day);
+                let s = Stock::new(version, "0".to_owned(), day);
                 v.insert(s);
             },
         };
@@ -99,7 +99,7 @@ impl ProductStock {
 
     pub fn clear_old(&mut self) {
         self.product.retain(|_, s| {
-            if s.day == 0 && s.available == 0 {
+            if &s.day == "0" && &s.available == "0" {
                 return false;
             }
             s.version == self.version
@@ -110,12 +110,12 @@ impl ProductStock {
 #[derive(Debug, Clone)]
 pub struct Stock {
     version: u32,
-    pub available: u32,
-    pub day: u32,
+    pub available: String,
+    pub day: String,
 }
 
 impl Stock {
-    pub fn new(version: u32, available: u32, day: u32) -> Stock {
+    pub fn new(version: u32, available: String, day: String) -> Stock {
         Stock {
             version,
             available,
@@ -219,7 +219,7 @@ impl Products {
         }
     }
 
-    pub fn update(&mut self, product_id: u32, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: i32, category_id: u32, warranty: String, ddp: bool, country_id: u32) {
+    pub fn update(&mut self, product_id: u32, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: i32, category_id: u32, warranty: u32, ddp: bool, country_id: u32) {
         match self.product.entry(product_id) {
             Entry::Occupied(o) => {
                 let p = o.into_mut();
@@ -240,8 +240,8 @@ impl Products {
                 let p = Product::new( self.version, 0, 0,
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
-                    "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
-                    bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, ddp, country_id, 0
+                    "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 0, 
+                    bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, ddp, country_id, "0".to_owned()
                 );
                 v.insert(p);
             },
@@ -268,15 +268,15 @@ impl Products {
             Entry::Vacant(v) => {
                 let p = Product::new(0, self.version, 0, 
                     "".to_owned(), "".to_owned(), "".to_owned(), group_ua, group_ru, desc_ua, desc_ru, category_ua, category_ru, url_ua, url_ru, class_ua, class_ru, 
-                    "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
-                    0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0, 0
+                    "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 0, 
+                    0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0, "0".to_owned()
                 );
                 v.insert(p);
             },
         };
     }
 
-    pub fn update_str(&mut self, product_id: u32, code: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, ua: String, ru: String, uktved: String, is_exclusive: u32) {
+    pub fn update_str(&mut self, product_id: u32, code: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, ua: String, ru: String, uktved: String, exclusive: String) {
         if let Entry::Vacant(v) = self.code.entry(code.clone()) {
             v.insert(product_id);
         }
@@ -294,15 +294,15 @@ impl Products {
                 p.ua = ua;
                 p.ru = ru;
                 p.uktved = uktved;
-                p.is_exclusive = is_exclusive;
+                p.exclusive = exclusive;
             },
             Entry::Vacant(v) => {
                 let p = Product::new(0, 0, self.version, 
                     code, ua, ru, "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
                     "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), 
-                    bg, ean, seller, article, vendor, model, uktved, "".to_owned(), 
+                    bg, ean, seller, article, vendor, model, uktved, 0, 
                     0.0, 0, 0, 0, 0.0, 0.0, 0, 0, false, 0,
-                    is_exclusive
+                    exclusive
                 );
                 v.insert(p);
             },
@@ -345,7 +345,7 @@ pub struct Product {
     pub vendor: String, 
     pub model: String, 
     pub uktved: String, 
-    pub warranty: String, 
+    pub warranty: u32, 
     pub bonus: f32,
     pub vendor_id: u32,
     pub group_id: u32,
@@ -356,11 +356,11 @@ pub struct Product {
     pub category_id: u32,
     pub ddp: bool,
     pub country_id: u32,
-    pub is_exclusive: u32,
+    pub exclusive: String,
 }
     
 impl Product {
-    pub fn new(version_1: u32, version_2: u32, version_3: u32, code: String, ua: String, ru: String, group_ua: String, group_ru: String, desc_ua: String, desc_ru: String, category_ua: String, category_ru: String, url_ua: String, url_ru: String, class_ua: String, class_ru: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, uktved: String, warranty: String, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: i32, category_id: u32, ddp: bool, country_id: u32, is_exclusive: u32,) -> Product {
+    pub fn new(version_1: u32, version_2: u32, version_3: u32, code: String, ua: String, ru: String, group_ua: String, group_ru: String, desc_ua: String, desc_ru: String, category_ua: String, category_ru: String, url_ua: String, url_ru: String, class_ua: String, class_ru: String, bg: String, ean: String, seller: String, article: String, vendor: String, model: String, uktved: String, warranty: u32, bonus: f32, vendor_id: u32, group_id: u32, class_id: u32, weight: f32, volume: f32, overall: i32, category_id: u32, ddp: bool, country_id: u32, exclusive: String,) -> Product {
         Product {
             version_1,
             version_2,
@@ -396,7 +396,7 @@ impl Product {
             category_id,
             ddp,
             country_id,
-            is_exclusive,
+            exclusive,
         }
     }
 }

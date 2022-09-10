@@ -5,7 +5,7 @@ use chrono::Local;
 use crate::{go::Go, init::Init, db::DB, log::Log, data::{Auth, World, Targets, Locks, Products, Bg, Store}};
 
 pub const MS1000: std::time::Duration = Duration::from_millis(1000);
-pub const M30: i64 = 5;
+pub const M30: i64 = 30;
 
 #[derive(Debug)]
 pub struct Cache {
@@ -352,7 +352,19 @@ impl Cache {
                 let row: Vec<(u32, f32, u32, u32, u32, f32, f32, i32, u32, String, bool, u32)> = result;
                 for (product_id, bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, warranty, ddp, country_id) in row {
                     let mut p = Mutex::lock(&product).unwrap();
-                    p.update(product_id, bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, warranty, ddp, country_id);
+                    let war: u32 = if warranty.len() == 0 {
+                        0
+                    } else {
+                        match if &warranty[0..1] == "-" {
+                            &warranty[1..]
+                        } else {
+                            &warranty[..]
+                        }.replace(" ", "").parse() {
+                            Ok(v) => v,
+                            Err(_) => 0,
+                        }
+                    };
+                    p.update(product_id, bonus, vendor_id, group_id, class_id, weight, volume, overall, category_id, war, ddp, country_id);
                 }
             },
             None => return false,
@@ -394,10 +406,10 @@ impl Cache {
         ";
         match db.query(sql) {
             Some(result) => {
-                let row: Vec<(u32, String, String, String, String, String, String, String, String, String, String, u32)> = result;
-                for (product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved, is_exclusive) in row {
+                let row: Vec<(u32, String, String, String, String, String, String, String, String, String, String, String)> = result;
+                for (product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved, exclusive) in row {
                     let mut p = Mutex::lock(&product).unwrap();
-                    p.update_str(product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved, is_exclusive);
+                    p.update_str(product_id, code, bg, ean, seller, article, vendor, model, ua, ru, uktved, exclusive);
                 }
             },
             None => return false,
@@ -428,7 +440,7 @@ impl Cache {
         ";
         match db.query(sql) {
             Some(result) => {
-                let row: Vec<(u32, String, u32)> = result;
+                let row: Vec<(u32, String, String)> = result;
                 for (stock_id, code, available) in row {
                     let product_id;
                     {
@@ -466,7 +478,7 @@ impl Cache {
         ";
         match db.query(sql) {
             Some(result) => {
-                let row: Vec<(u32, String, u32)> = result;
+                let row: Vec<(u32, String, String)> = result;
                 for (stock_id, code, day) in row {
                     let product_id;
                     {

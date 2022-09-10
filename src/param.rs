@@ -41,6 +41,7 @@ pub struct Param {
     pub volume: PriceVolume,
     pub volume_str: String,
     pub uah: bool,
+    pub nds_orig: bool,
     pub nds: bool,
     pub round: bool,
     pub ean: bool,
@@ -105,6 +106,7 @@ impl Param {
             },
             None => false,
         };
+        let nds_orig = nds;
         let round = if nds && uah { true } else { false };
         let company_id: u32 = match price_param.get("companyID") {
             Some(company_id) => match company_id.parse() {
@@ -194,6 +196,7 @@ impl Param {
             volume_str,
             uah,
             nds,
+            nds_orig,
             round,
             ean,
             api,

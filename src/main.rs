@@ -11,6 +11,7 @@ mod cache;
 mod db;
 mod data;
 mod param;
+mod format_xlsx;
 
 use std::env;
 

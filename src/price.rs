@@ -1,10 +1,110 @@
-use std::{sync::{Mutex, Arc, RwLock}, collections::HashMap, fs::{remove_file, read_to_string}, path::Path};
+use std::{sync::{Mutex, Arc, RwLock}, collections::{HashMap}, fs::{remove_file, read}, path::Path};
 
-use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB};
+use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX};
 use crate::PRODUCT_CAPACITY;
 
 use chrono::{NaiveDateTime, Local, TimeZone, Duration};
 use glob::glob;
+
+pub enum ValueType<'a> {
+    String(&'a str),
+    Money(f32),
+    Index(u32),
+}
+
+pub struct ItemShow<'a> {
+    pub local: bool,
+    pub full: bool,
+    pub short: bool,
+    pub full_uah: bool,
+    pub index: Option<String>,
+    pub rozn: bool,
+    pub r3: bool,
+    pub ean: bool,
+    pub name: &'a str,
+    pub get: Box<dyn Fn(&'a PriceItem) -> ValueType>,
+}
+
+pub struct Show<'a> {
+    pub list: Vec<ItemShow<'a>>,
+}
+
+impl<'a> Show<'a> {
+    pub fn new() -> Show<'a> {
+        let mut show = Show {
+            list: Vec::with_capacity(34)
+        };
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Index(val.category_id) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "CategoryID", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.code) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "Code", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.group) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: false, rozn: false, r3: false, ean: false, name: "Group", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.articul) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Article", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.vendor) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Vendor", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.model) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Model", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.name) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Name", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.description) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: false, rozn: false, r3: false, ean: false, name: "Description", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.price_usd) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "PriceUSD", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.price_uah) });
+        show.list.push(ItemShow { local: false, full: false, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "PriceUAH", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Index(val.price_ind) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Price_ind", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.category_name) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "CategoryName", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.bonus) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "Bonus", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.recommended_price) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "RecommendedPrice", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.ddp) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: false, rozn: false, r3: false, ean: false, name: "DDP", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Index(val.warranty) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Warranty", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.stock) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "Stock", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.note) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: false, rozn: false, r3: false, ean: false, name: "Note", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.day_delivery) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "DayDelivery", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Index(val.id) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: true, rozn: false, r3: false, ean: false, name: "ProductID", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.url) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: false, rozn: false, r3: false, ean: false, name: "URL", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.uktved) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "UKTVED", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Index(val.group_id) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "GroupID", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Index(val.class_id) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "ClassID", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.class_name) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "ClassName", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.available) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Available", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.country) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Country", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.retail_price) });
+        show.list.push(ItemShow { local: false, full: false, short: false, full_uah: true, rozn: true, r3: false, ean: false, name: "RetailPrice", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.internet_price) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: false, rozn: false, r3: true, ean: false, name: "InternetPrice", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::Money(val.cost_delivery) });
+        show.list.push(ItemShow { local: true, full: true, short: true, full_uah: false, rozn: false, r3: false, ean: false, name: "CostDelivery", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.available) });
+        show.list.push(ItemShow { local: false, full: false, short: true, full_uah: false, rozn: false, r3: false, ean: false, name: "Available", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.exclusive) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "Exclusive", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.ean) });
+        show.list.push(ItemShow { local: false, full: false, short: false, full_uah: true, rozn: false, r3: false, ean: true, name: "EAN", get, index: None });
+        let get = Box::new(| val: &'a PriceItem | { ValueType::String(&val.fop) });
+        show.list.push(ItemShow { local: true, full: true, short: false, full_uah: true, rozn: false, r3: false, ean: false, name: "FOP", get, index: None });
+        show
+    }
+}
 
 #[derive(Debug)]
 pub struct Price {
@@ -16,22 +116,22 @@ pub struct Price {
 pub struct PriceItem {
     id: u32,
     code: String,
-    stock: u32,
-    available: u32,
-    day_delivery: u32,
-    bg: String,
-    bonusOpt: f32,
+    stock: String,
+    available: String,
+    day_delivery: String,
+    // bg: String,
+    // bonus_opt: f32,
     bonus: f32,
     price_usd: f32,
     price_ind: u32,
     recommended_price: f32,
     retail_price: f32,
     internet_price: f32,
-    weight: f32,
-    volume: f32,
-    overall: u32,
+    // weight: f32,
+    // volume: f32,
+    // overall: u32,
     cost_delivery: f32,
-    categoryID: u32,
+    category_id: u32,
     group: String,
     articul: String,
     vendor: String,
@@ -39,26 +139,27 @@ pub struct PriceItem {
     name: String,
     description: String,
     category_name: String,
-    ddp: u32,
-    warranty: String,
+    ddp: String,
+    warranty: u32,
     note: String,
     url: String,
     uktved: String,
-    groupID: u32,
-    classID: u32,
-    className: String,
-    countryID: u32,
+    group_id: u32,
+    class_id: u32,
+    class_name: String,
+    // country_id: u32,
     country: String,
-    is_exclusive: u32,
+    exclusive: String,
     lock: bool,
-    EAN: String,
-    fop: u32,
-    price_UAH: f32,
+    ean: String,
+    fop: String,
+    price_uah: f32,
 }
 
 impl PriceItem {
-    pub fn new(product_id: u32, param: &Param, p: Product, l: &LockList, s: &ProductStock, b: &BonusGroup, t: &Target, h: &str, c: &HashMap<u32, Country>) -> Option<PriceItem> {
-        let fop: u32 = if p.seller.len() > 0 { 1 } else { 0 };
+    pub fn new(product_id: u32, param: &Param, p: Product, l: &LockList, s: &ProductStock, b: &BonusGroup, t: &Target, h: &str, c: &HashMap<u32, Country>, target_id: u32) -> Option<PriceItem> {
+        let fop: &str = if p.seller.len() > 0 { "1" } else { "0" };
+
         let lock = if l.list.len() == 0 {
             false
         } else if l.list.contains_key(&format!("0:0:0:{}", product_id)) {
@@ -80,38 +181,75 @@ impl PriceItem {
         } else {
             false
         };
-        let stock;
-        let available;
-        let day_delivery;
+        let mut stock;
+        let mut available;
+        let mut day_delivery;
         if lock {
-            stock = 0;
-            available = 0;
-            day_delivery = 0;
+            stock = "0".to_owned();
+            available = "0".to_owned();
+            day_delivery = "0".to_owned();
         } else {
             match s.product.get(&product_id) {
                 Some(st) => {
-                    if st.available > 0 {
-                        stock = 1;
-                        available = st.available;
-                        day_delivery = 0;
+                    if &st.available != "0" {
+                        stock = "1".to_owned();
+                        available = st.available.clone();
+                        day_delivery = "0".to_owned();
                     } else {
-                        stock = 0;
-                        available = 0;
-                        day_delivery = st.day;
+                        stock = "0".to_owned();
+                        available = "0".to_owned();
+                        day_delivery = st.day.clone();
                     }
                 },
                 None => {
-                    stock = 0;
-                    available = 0;
-                    day_delivery = 0;
+                    stock = "0".to_owned();
+                    available = "0".to_owned();
+                    day_delivery = "0".to_owned();
                 },
             }
         }
-        if stock == 0 && (param.volume == PriceVolume::Local || param.volume == PriceVolume::FullUAH) {
+
+        // Task #1
+        // 08.11.2021 11:14
+        if param.company_id == 13983 && fop == "1" {
             return None;
         }
-        if stock == 0 && day_delivery == 0 && !lock {
-            return  None;
+        // Task #2
+        // 02.07.2019 16:51
+        if param.company_id == 12377 || param.company_id == 16304 || (param.company_id == 16813 && target_id == 29) {
+            if p.category_id == 1053 {
+                if (p.vendor == "Vinga" || p.vendor == "BRAIN") && &stock == "0" && &day_delivery != "0" {
+                    stock = "1".to_owned();
+                    available = "3".to_owned();
+                    day_delivery = "0".to_owned();
+                }
+            }
+        }
+        // Task #3
+        // 02.07.2019 10:31
+        if param.pc_vinga {
+            if p.category_id != 1053 {
+                return None;
+            }
+            if p.vendor == "BRAIN" || p.vendor == "Vinga" {
+                stock = "1".to_owned();
+                available = "3".to_owned();
+                day_delivery = "0".to_owned();
+            } else {
+                return None;
+            }
+        }
+
+        // Task #4
+        if param.company_id == 16304 && (fop == "1" || &stock == "0") {
+            return None;
+        }
+
+        if &stock == "0" && (param.volume == PriceVolume::Local || param.volume == PriceVolume::FullUAH) {
+            return None;
+        }
+        if &stock == "0" && &day_delivery == "0" && !lock {
+            return None;
         }
         let bonus = if lock {
             0.0
@@ -131,10 +269,10 @@ impl PriceItem {
             2 => t.postage_big,
             _ => t.postage_large,
         };
-        let ddp: u32 = if p.ddp {
-            1
+        let ddp = if p.ddp {
+            "1".to_owned()
         } else {
-            0
+            "0".to_owned()
         };
         let group; 
         let name;
@@ -176,19 +314,19 @@ impl PriceItem {
             stock,
             available,
             day_delivery,
-            bg: p.bg,
-            bonusOpt: p.bonus,
+            // bg: p.bg,
+            // bonus_opt: p.bonus,
             bonus: bonus,
             price_usd: 0.0,
             price_ind: 0,
             recommended_price: 0.0,
             retail_price: 0.0,
             internet_price: 0.0,
-            weight: p.weight,
-            volume: p.volume,
-            overall,
+            // weight: p.weight,
+            // volume: p.volume,
+            // overall,
             cost_delivery,
-            categoryID: p.category_id,
+            category_id: p.category_id,
             group,
             articul: p.article,
             vendor: p.vendor,
@@ -201,16 +339,16 @@ impl PriceItem {
             note: "".to_owned(),
             url,
             uktved: p.uktved,
-            groupID: p.group_id,
-            classID: p.class_id,
-            className: class,
-            countryID: p.country_id,
+            group_id: p.group_id,
+            class_id: p.class_id,
+            class_name: class,
+            // country_id: p.country_id,
             country,
-            is_exclusive: p.is_exclusive,
+            exclusive: p.exclusive,
             lock,
-            EAN: p.ean,
-            fop,
-            price_UAH: 0.0,
+            ean: p.ean,
+            fop: fop.to_owned(),
+            price_uah: 0.0,
         })
     }
 }
@@ -413,8 +551,8 @@ impl Price {
 
         let path = Path::new(file);
         if path.exists() {
-            match read_to_string(file) {
-                Ok(res) => return Ok(res.as_bytes().to_vec()),
+            match read(path) {
+                Ok(res) => return Ok(res),
                 Err(_) => {
                     if let Err(_) = remove_file(file) {
                         return Err(log.client_err(22));
@@ -535,7 +673,7 @@ impl Price {
                     None => continue,
                 };
             }
-            if let Some(p) = PriceItem::new(product_id, param, p, &lock, &stock, &bg, &target, hostname, &country) {
+            if let Some(p) = PriceItem::new(product_id, param, p, &lock, &stock, &bg, &target, hostname, &country, target_id) {
                 self.items.insert(product_id, p);
                 ids.push(product_id.to_string());
             }
@@ -581,11 +719,19 @@ impl Price {
                     match self.items.get_mut(&product_id) {
                         Some(p) => {
                             if !p.lock {
-                                p.price_usd = price_usd;
+                                if param.nds_orig {
+                                    p.price_usd = Price::round6(price_usd);
+                                } else {
+                                    p.price_usd = price_usd;
+                                }
                                 p.price_ind = price_ind;
                                 p.retail_price = retail_price;
                                 p.internet_price = internet_price;
-                                p.price_UAH = price_usd * kurs;
+                                if param.nds {
+                                    p.price_uah = Price::round6(price_usd * kurs);
+                                } else {
+                                    p.price_uah = price_usd * kurs;
+                                }
                             }
                             p.recommended_price = recommended_price;
                         },
@@ -595,7 +741,24 @@ impl Price {
             },
             None => return Err(log.client_err(28)),
         }
-        Ok("test".as_bytes().to_vec())
+
+        let res = match param.format {
+            Format::XLSX => FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean),
+            Format::XML => todo!(),
+            Format::JSON => todo!(),
+            Format::PHP => todo!(),
+        };
+        match res {
+            Some(res) => Ok(res),
+            None => Err(log.client_err(29)),
+        }
+    }
+
+    fn round6(price: f32) -> f32 {
+        let mut price = price * 100.0 + 0.5;
+        price = price.floor() / 6.0 + 0.5;
+        price = price.floor() * 6.0;
+        price / 100.0
     }
 
 }
