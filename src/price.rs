@@ -1,6 +1,6 @@
-use std::{sync::{Mutex, Arc, RwLock}, collections::{HashMap}, fs::{remove_file, read}, path::Path};
+use std::{sync::{Mutex, Arc, RwLock}, collections::HashMap, fs::{remove_file, read}, path::Path};
 
-use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX};
+use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX, format_php::FormatPHP};
 use crate::PRODUCT_CAPACITY;
 
 use chrono::{NaiveDateTime, Local, TimeZone, Duration};
@@ -114,7 +114,7 @@ pub struct Price {
 
 #[derive(Debug)]
 pub struct PriceItem {
-    id: u32,
+    pub id: u32,
     code: String,
     stock: String,
     available: String,
@@ -742,15 +742,21 @@ impl Price {
             None => return Err(log.client_err(28)),
         }
 
-        let res = match param.format {
-            Format::XLSX => FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean),
+        match param.format {
+            Format::XLSX => {
+                match FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+                    Some(res) => Ok(res),
+                    None => Err(log.client_err(29)),
+                }
+            },
+            Format::PHP => {
+                match FormatPHP::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+                    Some(res) => Ok(res),
+                    None => Err(log.client_err(30)),
+                }
+            },
             Format::XML => todo!(),
             Format::JSON => todo!(),
-            Format::PHP => todo!(),
-        };
-        match res {
-            Some(res) => Ok(res),
-            None => Err(log.client_err(29)),
         }
     }
 
