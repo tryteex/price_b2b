@@ -13,6 +13,7 @@ mod data;
 mod param;
 mod format_xlsx;
 mod format_php;
+mod format_xml;
 
 use std::env;
 
@@ -33,6 +34,10 @@ pub const PRODUCT_CAPACITY: usize = 1048576;
 pub const BONUS_COMPANY_CAPACITY: usize = 4096;
 pub const BONUS_GROUP_CAPACITY: usize = 256;
 pub const STOCK_CAPACITY: usize = 64;
+pub const CATEGORY_CAPACITY: usize = 4096;
+pub const FILE_BUFFER_CAPACITY: usize = 10000000;
+pub const FILE_FLUSH_BUFFER_CAPACITY: usize = 9900000;
+pub const SMALL_BUFFER_CAPACITY: usize = 32768;
 
 fn main() {
     let dir = env::current_dir().unwrap().to_str().unwrap().to_owned();

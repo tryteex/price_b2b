@@ -1,6 +1,6 @@
 use std::{sync::{Mutex, Arc, RwLock}, collections::HashMap, fs::{remove_file, read}, path::Path};
 
-use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX, format_php::FormatPHP};
+use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX, format_php::FormatPHP, format_xml::FormatXml};
 use crate::PRODUCT_CAPACITY;
 
 use chrono::{NaiveDateTime, Local, TimeZone, Duration};
@@ -546,6 +546,7 @@ impl Price {
             init = Arc::clone(&w.init);
         }
         let log_clone = Arc::clone(&log);
+        let init_clone = Arc::clone(&init);
         let log = RwLock::read(&log).unwrap();
         let init = RwLock::read(&init).unwrap();
 
@@ -743,19 +744,18 @@ impl Price {
         }
 
         match param.format {
-            Format::XLSX => {
-                match FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
-                    Some(res) => Ok(res),
-                    None => Err(log.client_err(29)),
-                }
+            Format::XLSX => match FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+                Some(res) => Ok(res),
+                None => Err(log.client_err(29)),
             },
-            Format::PHP => {
-                match FormatPHP::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
-                    Some(res) => Ok(res),
-                    None => Err(log.client_err(30)),
-                }
+            Format::PHP => match FormatPHP::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+                Some(res) => Ok(res),
+                None => Err(log.client_err(30)),
             },
-            Format::XML => todo!(),
+            Format::XML => match FormatXml::make(&self.items, file, &param.volume, rozn, r3, param.ean, &param.lang, Arc::clone(&init_clone), Arc::clone(&log_clone)) {
+                Some(res) => Ok(res),
+                None => Err(log.client_err(31)),
+            },
             Format::JSON => todo!(),
         }
     }

@@ -3,7 +3,7 @@ use std::{collections::{HashMap, hash_map::Entry}, fs::{read, rename}, io::Write
 use chrono::Local;
 use zip::{ZipWriter, write::FileOptions, CompressionMethod};
 
-use crate::{param::PriceVolume, price::{Show, PriceItem, ValueType}};
+use crate::{param::PriceVolume, price::{Show, PriceItem, ValueType}, FILE_FLUSH_BUFFER_CAPACITY, FILE_BUFFER_CAPACITY};
 
 pub struct FormatXLSX { }
 
@@ -176,7 +176,7 @@ impl FormatXLSX {
                 if let Err(_) = zip.write_all(data.as_bytes()) {
                     return None;
                 }
-                let mut data = String::with_capacity(10000000);
+                let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
                 let mut index: usize = 0;
                 let mut num: usize;
                 let mut count: u32 = 1;
@@ -219,7 +219,7 @@ impl FormatXLSX {
                                 ValueType::Money(v) => data.push_str(&format!("<c r=\"{}{}\" s=\"1\" t=\"n\"><v>{:.2}</v></c>", ind, count, v)),
                                 ValueType::Index(v) => data.push_str(&format!("<c r=\"{}{}\" s=\"3\" t=\"n\"><v>{}</v></c>", ind, count, v)),
                             }
-                            if data.len() > 9900000 {
+                            if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
                                 if let Err(_) = zip.write_all(data.as_bytes()) {
                                     return None;
                                 }
@@ -261,10 +261,10 @@ impl FormatXLSX {
                 if let Err(_) = zip.write_all(data.as_bytes()) {
                     return None;
                 }
-                let mut data = String::with_capacity(10000000);
+                let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
                 for val in list {
                     data.push_str(&format!("<si><t>{}</t></si>", FormatXLSX::escape_xml(val)));
-                    if data.len() > 9900000 {
+                    if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
                         if let Err(_) = zip.write_all(data.as_bytes()) {
                             return None;
                         }
