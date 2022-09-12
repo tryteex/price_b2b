@@ -14,6 +14,7 @@ mod param;
 mod format_xlsx;
 mod format_php;
 mod format_xml;
+mod format_json;
 
 use std::env;
 

@@ -1,6 +1,6 @@
 use std::{sync::{Mutex, Arc, RwLock}, collections::HashMap, fs::{remove_file, read}, path::Path};
 
-use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX, format_php::FormatPHP, format_xml::FormatXml};
+use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX, format_php::FormatPHP, format_xml::FormatXml, format_json::FormatJSON};
 use crate::PRODUCT_CAPACITY;
 
 use chrono::{NaiveDateTime, Local, TimeZone, Duration};
@@ -756,7 +756,10 @@ impl Price {
                 Some(res) => Ok(res),
                 None => Err(log.client_err(31)),
             },
-            Format::JSON => todo!(),
+            Format::JSON => match FormatJSON::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+                Some(res) => Ok(res),
+                None => Err(log.client_err(32)),
+            },
         }
     }
 
