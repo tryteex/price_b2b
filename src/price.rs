@@ -460,9 +460,9 @@ impl Price {
                     }
                 } else {
                     let file = fl.display().to_string();
-                    let parts: Vec<&str> = file.splitn(9, "_").collect();
-                    if parts.len() == 9 {
-                        let dt = &parts[8][..15];
+                    let parts: Vec<&str> = file.splitn(8, "_").collect();
+                    if parts.len() == 8 {
+                        let dt = &parts[7][..15];
                         match NaiveDateTime::parse_from_str(dt, "%Y%m%d_%H%M%S") {
                             Ok(tm) => {
                                 let tm = Local.from_local_datetime(&tm).unwrap() + Duration::minutes(30);
@@ -492,8 +492,8 @@ impl Price {
         let file;
         if let None = filename {
             file = format!("{}/cache/price_{}_{}_{}_{}_{}_{}_{}.{}", init.dir, param.company_id, param.user_id, param.target_id, param.lang_str, param.volume_str, param.pc_vinga_str, now.format("%Y%m%d_%H%M%S").to_string(), param.format_str);
-        } else if param.user_id == 449093 {
-            file = format!("{}/cache/price_{}_{}_{}_{}_{}_{}_{}.{}", init.dir, param.company_id, param.user_id, param.target_id, param.lang_str, param.volume_str, param.pc_vinga_str, now.format("%Y%m%d_%H%M%S").to_string(), param.format_str);
+        // } else if param.user_id == 449093 {
+        //     file = format!("{}/cache/price_{}_{}_{}_{}_{}_{}_{}.{}", init.dir, param.company_id, param.user_id, param.target_id, param.lang_str, param.volume_str, param.pc_vinga_str, now.format("%Y%m%d_%H%M%S").to_string(), param.format_str);
         } else {
             file = filename.unwrap();
         }

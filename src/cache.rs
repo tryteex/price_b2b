@@ -68,14 +68,19 @@ impl Cache {
                 let init = RwLock::read(&init).unwrap();
                 let mut db_b2b = match DB::new(&init.db_b2b, Arc::clone(&log)) {
                     Some(db) => db,
-                    None => continue,
+                    None => {
+                        thread::sleep(MS1000);
+                        continue;
+                    },
                 };
                 let mut db_log = match DB::new(&init.db_log, Arc::clone(&log)) {
                     Some(db) => db,
-                    None => continue,
+                    None => {
+                        thread::sleep(MS1000);
+                        continue;
+                    },
                 };
 
-                println!("start {}", Local::now().format("%Y.%m.%d %H:%M:%S%.9f %:z").to_string()); 
                 loop {
                     let res = Cache::load_auth(Arc::clone(&cache_thread), &mut db_b2b);
                     if res {
@@ -132,7 +137,6 @@ impl Cache {
                     }
                     thread::sleep(MS1000);
                 }
-                println!("end {}", Local::now().format("%Y.%m.%d %H:%M:%S%.9f %:z").to_string());
 
                 last = Local::now();
             } else {
