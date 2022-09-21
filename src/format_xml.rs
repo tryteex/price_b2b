@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}, fs::{File, rename, read}, io::Write};
 
-use crate::{price::{PriceItem, Show, ValueType}, param::{PriceVolume, Lang}, init::Init, db::DB, log::Log, CATEGORY_CAPACITY, FILE_BUFFER_CAPACITY, SMALL_BUFFER_CAPACITY, FILE_FLUSH_BUFFER_CAPACITY};
+use crate::{price::{PriceItem, Show, ValueType}, param::{PriceVolume, Lang}, init::Init, db::DB, log::Log};
 
 pub struct Category {
     id: u32,
@@ -22,6 +22,8 @@ impl FormatXml {
 
     pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool, lang: &Lang, init: Arc<RwLock<Init>>, log: Arc<RwLock<Log>>) -> Option<Vec<u8>> {
         let mut show = Show::new();
+        let init_clone = Arc::clone(&init);
+        let init_read = RwLock::read(&init_clone).unwrap();
         let cat;
         match volume {
             PriceVolume::Local => {
@@ -69,7 +71,7 @@ impl FormatXml {
             Ok(file) => file,
             Err(_) => return None,
         };
-        let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
+        let mut data = String::with_capacity(init_read.file_buffer_capacity);
         data.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<price>");
         data.push_str(&cat);
         data.push_str("<products>");
@@ -82,7 +84,7 @@ impl FormatXml {
                         ValueType::Money(v) => data.push_str(&format!(" {}=\"{:.2}\"", FormatXml::escape_xml(&item.name), v)),
                         ValueType::Index(v) => data.push_str(&format!(" {}=\"{}\"", FormatXml::escape_xml(&item.name), v)),
                     }
-                    if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
+                    if data.len() > init_read.file_buffer_capacity {
                         if let Err(_) = file.write_all(data.as_bytes()) {
                             return None;
                         }
@@ -119,15 +121,15 @@ impl FormatXml {
         match db.query(&sql) {
             Some(result) => {
                 let row: Vec<(u32, String, u32)> = result;
-                let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
-                let mut cat: Vec<Category> = Vec::with_capacity(CATEGORY_CAPACITY);
+                let mut data = String::with_capacity(init.file_buffer_capacity);
+                let mut cat: Vec<Category> = Vec::with_capacity(init.category_capacity);
                 data.push_str("<categories>");
                 for (category_id, name, parent_id) in row {
                     cat.push(Category { id: category_id, name, parent_id });
                 }
                 for c in &cat {
                     if c.parent_id == 1 {
-                        let ct = FormatXml::build_tree_cat(&cat, c.id);
+                        let ct = FormatXml::build_tree_cat(&cat, c.id, init.small_buffer_capacity);
                         if ct.len() == 0 {
                             data.push_str(&format!("<category id=\"{}\" name=\"{}\"/>", c.id, FormatXml::escape_xml(&c.name)));
                         } else {
@@ -143,11 +145,11 @@ impl FormatXml {
         }
     }
 
-    fn build_tree_cat(cat: &Vec<Category>, id: u32) -> String {
-        let mut data = String::with_capacity(SMALL_BUFFER_CAPACITY);
+    fn build_tree_cat(cat: &Vec<Category>, id: u32, capacity: usize) -> String {
+        let mut data = String::with_capacity(capacity);
         for c in cat {
             if c.parent_id == id {
-                let ct = FormatXml::build_tree_cat(&cat, c.id);
+                let ct = FormatXml::build_tree_cat(&cat, c.id, capacity);
                 if ct.len() == 0 {
                     data.push_str(&format!("<subcategory id=\"{}\" name=\"{}\"/>", c.id, FormatXml::escape_xml(&c.name)));
                 } else {

@@ -4,6 +4,5 @@ init.config
 init_debug.config
 error.log
 index.php
-main.cpp
 /cache/
 task.list

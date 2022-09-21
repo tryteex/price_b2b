@@ -46,7 +46,6 @@ impl Go {
             use_connection: 0,
             cache: None,
         }));
-
         let cache = Cache::new(Arc::clone(&go), Arc::clone(&init), Arc::clone(&log));
         loop {
             {

@@ -1,18 +1,18 @@
 use std::{collections::{HashMap, hash_map::Entry}};
 
-use crate::{STOCK_CAPACITY, PRODUCT_CAPACITY, BONUS_COMPANY_CAPACITY, BONUS_GROUP_CAPACITY, LOCK_CAPACITY, TARGET_CAPACITY, COUNTRY_CAPACITY, AUTH_COMPANY_CAPACITY, AUTH_USER_CAPACITY, LOCK_ITEM_CAPACITY};
-
 #[derive(Debug)]
 pub struct Store {
     version: u32,
+    capacity: usize, 
     pub stock: HashMap<u32, ProductStock>,
 }
 
 impl Store {
-    pub fn new() -> Store {
+    pub fn new(cap: usize, capacity: usize) -> Store {
         Store {
             version: 0,
-            stock: HashMap::with_capacity(STOCK_CAPACITY),
+            stock: HashMap::with_capacity(cap),
+            capacity,
         }
     }
 
@@ -24,7 +24,7 @@ impl Store {
         let stock = match self.stock.entry(stock_id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
-                let p = ProductStock::new();
+                let p = ProductStock::new(self.capacity);
                 v.insert(p)
             },
         };
@@ -35,7 +35,7 @@ impl Store {
         let stock = match self.stock.entry(stock_id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
-                let p = ProductStock::new();
+                let p = ProductStock::new(self.capacity);
                 v.insert(p)
             },
         };
@@ -60,10 +60,10 @@ pub struct ProductStock {
 }
 
 impl ProductStock {
-    pub fn new() -> ProductStock {
+    pub fn new(cap: usize) -> ProductStock {
         ProductStock {
             version: 0,
-            product: HashMap::with_capacity(PRODUCT_CAPACITY),
+            product: HashMap::with_capacity(cap),
         }
     }
 
@@ -127,13 +127,15 @@ impl Stock {
 #[derive(Debug)]
 pub struct Bg {
     pub bg: HashMap<u32, BonusGroup>,
+    capacity: usize,
     version: u32,
 }
 
 impl Bg {
-    pub fn new() -> Bg {
+    pub fn new(cap: usize, capacity: usize) -> Bg {
         Bg {
-            bg: HashMap::with_capacity(BONUS_COMPANY_CAPACITY),
+            bg: HashMap::with_capacity(cap),
+            capacity,
             version: 0,
         }
     }
@@ -146,7 +148,7 @@ impl Bg {
         let g = match self.bg.entry(company_id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
-                let g = BonusGroup::new();
+                let g = BonusGroup::new(self.capacity);
                 v.insert(g)
             },
         };
@@ -168,15 +170,15 @@ impl Bg {
 
 #[derive(Debug, Clone)]
 pub struct BonusGroup {
-    version: u32, 
+    version: u32,
     pub groups: HashMap<String, u32>,
 }
 
 impl BonusGroup {
-    pub fn new() -> BonusGroup {
+    pub fn new(cap: usize) -> BonusGroup {
         BonusGroup {
             version: 0,
-            groups: HashMap::with_capacity(BONUS_GROUP_CAPACITY),
+            groups: HashMap::with_capacity(cap),
         }
     }
 
@@ -200,11 +202,11 @@ pub struct Products {
 }
     
 impl Products {
-    pub fn new() -> Products {
+    pub fn new(cap: usize) -> Products {
         Products{
             version: 0, 
-            product: HashMap::with_capacity(PRODUCT_CAPACITY),
-            code: HashMap::with_capacity(PRODUCT_CAPACITY),
+            product: HashMap::with_capacity(cap),
+            code: HashMap::with_capacity(cap),
         }
     }
 
@@ -404,13 +406,15 @@ impl Product {
 #[derive(Debug)]
 pub struct Locks {
     pub lock: HashMap<u32, LockList>,
+    capacity: usize,
     version: u32,
 }
 
 impl Locks {
-    pub fn new() -> Locks {
+    pub fn new(cap: usize, capacity: usize) -> Locks {
         Locks{
-            lock: HashMap::with_capacity(LOCK_CAPACITY),
+            lock: HashMap::with_capacity(cap),
+            capacity,
             version: 0,
         }
     }
@@ -422,7 +426,7 @@ impl Locks {
     pub fn update(&mut self, company_id: u32, vendor_id: u32, group_id: u32, class_id: u32, product_id: u32) {
         let l = match self.lock.entry(company_id) {
             Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(v) => v.insert(LockList::new()),
+            Entry::Vacant(v) => v.insert(LockList::new(self.capacity)),
         };
         l.update(self.version, vendor_id, group_id, class_id, product_id);
     }
@@ -445,9 +449,9 @@ pub struct LockList {
 }
 
 impl LockList {
-    pub fn new() -> LockList{
+    pub fn new(cap: usize) -> LockList{
         LockList {
-            list: HashMap::with_capacity(LOCK_ITEM_CAPACITY),
+            list: HashMap::with_capacity(cap),
             version: 0,
         }
     }
@@ -506,9 +510,9 @@ pub struct Targets {
 }
 
 impl Targets {
-    pub fn new() -> Targets {
+    pub fn new(cap: usize) -> Targets {
         Targets{
-            target: HashMap::with_capacity(TARGET_CAPACITY),
+            target: HashMap::with_capacity(cap),
             version: 0,
         }
     }
@@ -574,9 +578,9 @@ pub struct World {
 }
 
 impl World {
-    pub fn new() -> World {
+    pub fn new(cap: usize) -> World {
         World {
-            countries: HashMap::with_capacity(COUNTRY_CAPACITY),
+            countries: HashMap::with_capacity(cap),
         }
     }
 
@@ -613,13 +617,15 @@ impl Country {
 #[derive(Debug)]
 pub struct Auth {
     pub company: HashMap<u32, Company>,
+    capacity: usize,
     version: u32,
 }
 
 impl Auth {
-    pub fn new() -> Auth {
+    pub fn new(cap: usize, capacity: usize) -> Auth {
         Auth {
-            company: HashMap::with_capacity(AUTH_COMPANY_CAPACITY),
+            company: HashMap::with_capacity(cap),
+            capacity,
             version: 0,
         }
     }
@@ -628,7 +634,7 @@ impl Auth {
         let c = match self.company.entry(company_id) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(v) => {
-                let c = Company::new();
+                let c = Company::new(self.capacity);
                 v.insert(c)
             },
         };
@@ -657,9 +663,9 @@ pub struct Company {
 }
 
 impl Company {
-    pub fn new() -> Company {
+    pub fn new(cap: usize) -> Company {
         Company {
-            users: HashMap::with_capacity(AUTH_USER_CAPACITY),
+            users: HashMap::with_capacity(cap),
             version: 0,
         }
     }

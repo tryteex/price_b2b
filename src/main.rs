@@ -25,21 +25,6 @@ use init::AppInit;
 
 use crate::{log::Log, init::Init};
 
-pub const AUTH_COMPANY_CAPACITY: usize = 32768;
-pub const AUTH_USER_CAPACITY: usize = 64;
-pub const COUNTRY_CAPACITY: usize = 128;
-pub const TARGET_CAPACITY: usize = 512;
-pub const LOCK_CAPACITY: usize = 8192;
-pub const LOCK_ITEM_CAPACITY: usize = 512;
-pub const PRODUCT_CAPACITY: usize = 1048576;
-pub const BONUS_COMPANY_CAPACITY: usize = 4096;
-pub const BONUS_GROUP_CAPACITY: usize = 256;
-pub const STOCK_CAPACITY: usize = 64;
-pub const CATEGORY_CAPACITY: usize = 4096;
-pub const FILE_BUFFER_CAPACITY: usize = 10000000;
-pub const FILE_FLUSH_BUFFER_CAPACITY: usize = 9900000;
-pub const SMALL_BUFFER_CAPACITY: usize = 32768;
-
 fn main() {
     let dir = env::current_dir().unwrap().to_str().unwrap().to_owned();
     let log = Log::new(&dir);

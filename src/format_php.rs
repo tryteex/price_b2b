@@ -1,12 +1,14 @@
-use std::{collections::HashMap, fs::{File, rename, read}, io::Write};
+use std::{collections::HashMap, fs::{File, rename, read}, io::Write, sync::{RwLock, Arc}};
 
-use crate::{price::{PriceItem, Show, ValueType}, param::PriceVolume, FILE_BUFFER_CAPACITY, FILE_FLUSH_BUFFER_CAPACITY};
+use crate::{price::{PriceItem, Show, ValueType}, param::PriceVolume, init::Init};
 
 pub struct FormatPHP { }
 
 impl FormatPHP {
 
-    pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool) -> Option<Vec<u8>> {
+    pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool, init: Arc<RwLock<Init>>) -> Option<Vec<u8>> {
+        let init_read = RwLock::read(&init).unwrap();
+
         let mut show = Show::new();
         let mut col: u32 = 0;
         match volume {
@@ -49,7 +51,7 @@ impl FormatPHP {
             Ok(file) => file,
             Err(_) => return None,
         };
-        let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
+        let mut data = String::with_capacity(init_read.file_buffer_capacity);
         data.push_str(&format!("a:{}:{{", items.len()));
         for (_, price) in items {
             data.push_str(&format!("i:{};a:{}:{{", price.id, col));
@@ -60,7 +62,7 @@ impl FormatPHP {
                         ValueType::Money(v) => data.push_str(&format!("s:{}:\"{}\";i:{:.2};", item.name.len(), item.name, v)),
                         ValueType::Index(v) => data.push_str(&format!("s:{}:\"{}\";d:{};", item.name.len(), item.name, v)),
                     }
-                    if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
+                    if data.len() > init_read.file_flush_buffer_capacity {
                         if let Err(_) = file.write_all(data.as_bytes()) {
                             return None;
                         }

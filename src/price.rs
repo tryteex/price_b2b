@@ -1,7 +1,6 @@
 use std::{sync::{Mutex, Arc, RwLock}, collections::HashMap, fs::{remove_file, read}, path::Path};
 
 use crate::{worker::Worker, param::{Format, Param, PriceVolume, Lang}, cache::Cache, log::Log, init::Init, data::{Product, LockList, Target, ProductStock, BonusGroup, Country}, db::DB, format_xlsx::FormatXLSX, format_php::FormatPHP, format_xml::FormatXml, format_json::FormatJSON};
-use crate::PRODUCT_CAPACITY;
 
 use chrono::{NaiveDateTime, Local, TimeZone, Duration};
 use glob::glob;
@@ -355,19 +354,34 @@ impl PriceItem {
 
 impl Price {
     pub fn new(worker: Arc<Mutex<Worker>>) -> Price {
+        let init;
+        {
+            let w = Mutex::lock(&worker).unwrap();
+            init = Arc::clone(&w.init);
+        };
+        let cap = {
+            let i = RwLock::read(&init).unwrap();
+            i.product_capacity
+        };
         Price {
             worker,
-            items: HashMap::with_capacity(PRODUCT_CAPACITY),
+            items: HashMap::with_capacity(cap),
         }
     }
     
     pub fn calc(&mut self, param: &HashMap<String, String>) -> Vec<u8> {
+        if cfg!(debug_assertions) {
+            println!("{} Start price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+        }
         let log;
         let init;
         let cache;
         {
             let w = Mutex::lock(&self.worker).unwrap();
             if w.stop {
+                if cfg!(debug_assertions) {
+                    println!("{} Finish price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
                 return Vec::new();
             }
             log = Arc::clone(&w.log);
@@ -380,6 +394,9 @@ impl Price {
                 let text = err.as_bytes();
                 let mut answer = format!("HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n", text.len()).as_bytes().to_vec();
                 answer.extend_from_slice(&text[..]);
+                if cfg!(debug_assertions) {
+                    println!("{} Finish price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
                 return answer;
             },
         };
@@ -390,6 +407,9 @@ impl Price {
                 let text = err.as_bytes();
                 let mut answer = format!("HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n", text.len()).as_bytes().to_vec();
                 answer.extend_from_slice(&text[..]);
+                if cfg!(debug_assertions) {
+                    println!("{} Finish price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
                 return answer;
             },
         };
@@ -400,6 +420,9 @@ impl Price {
                 let text = err.as_bytes();
                 let mut answer = format!("HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n", text.len()).as_bytes().to_vec();
                 answer.extend_from_slice(&text[..]);
+                if cfg!(debug_assertions) {
+                    println!("{} Finish price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
                 return answer;
             },
         };
@@ -411,6 +434,9 @@ impl Price {
                 let text = err.as_bytes();
                 let mut answer = format!("HTTP/1.1 401 Unauthorized\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\r\n", text.len()).as_bytes().to_vec();
                 answer.extend_from_slice(&text[..]);
+                if cfg!(debug_assertions) {
+                    println!("{} Finish price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
                 return answer;
             },
         };
@@ -436,7 +462,9 @@ impl Price {
     
         let mut answer = answer.join("").into_bytes();
         answer.extend_from_slice(&text[..]);
-
+        if cfg!(debug_assertions) {
+            println!("{} Finish price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+        }
         answer
     }
 
@@ -460,7 +488,7 @@ impl Price {
                     }
                 } else {
                     let file = fl.display().to_string();
-                    let parts: Vec<&str> = file.splitn(8, "_").collect();
+                    let parts: Vec<&str> = file[init.dir.len()..].splitn(8, "_").collect();
                     if parts.len() == 8 {
                         let dt = &parts[7][..15];
                         match NaiveDateTime::parse_from_str(dt, "%Y%m%d_%H%M%S") {
@@ -492,9 +520,7 @@ impl Price {
         let file;
         if let None = filename {
             file = format!("{}/cache/price_{}_{}_{}_{}_{}_{}_{}.{}", init.dir, param.company_id, param.user_id, param.target_id, param.lang_str, param.volume_str, param.pc_vinga_str, now.format("%Y%m%d_%H%M%S").to_string(), param.format_str);
-        // } else if param.user_id == 449093 {
-        //     file = format!("{}/cache/price_{}_{}_{}_{}_{}_{}_{}.{}", init.dir, param.company_id, param.user_id, param.target_id, param.lang_str, param.volume_str, param.pc_vinga_str, now.format("%Y%m%d_%H%M%S").to_string(), param.format_str);
-        } else {
+         } else {
             file = filename.unwrap();
         }
         Ok(file)
@@ -630,7 +656,7 @@ impl Price {
             let l = Mutex::lock(&locks).unwrap();
             lock = match l.lock.get(&param.company_id) {
                 Some(l) => l.clone(),
-                None => LockList::new(),
+                None => LockList::new(0),
             };
         }
         let target;
@@ -654,7 +680,7 @@ impl Price {
             let b = Mutex::lock(&bgs).unwrap();
             bg = match b.bg.get(&param.company_id) {
                 Some(b) => b.clone(),
-                None => BonusGroup::new(),
+                None => BonusGroup::new(0),
             };
         }
         let country;
@@ -664,7 +690,7 @@ impl Price {
         }
         let hostname = if corp { "corp.brain.com.ua" } else { "opt.brain.com.ua" };
 
-        let mut ids: Vec<String> = Vec::with_capacity(PRODUCT_CAPACITY);
+        let mut ids: Vec<String> = Vec::with_capacity(init.product_capacity);
         for (_, product_id) in codes {
             let p;
             {
@@ -743,12 +769,15 @@ impl Price {
             None => return Err(log.client_err(28)),
         }
 
-        match param.format {
-            Format::XLSX => match FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+        if cfg!(debug_assertions) {
+            println!("{} Start format price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string());
+        }
+        let res = match param.format {
+            Format::XLSX => match FormatXLSX::make(&self.items, file, &param.volume, rozn, r3, param.ean, Arc::clone(&init_clone)) {
                 Some(res) => Ok(res),
                 None => Err(log.client_err(29)),
             },
-            Format::PHP => match FormatPHP::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+            Format::PHP => match FormatPHP::make(&self.items, file, &param.volume, rozn, r3, param.ean, Arc::clone(&init_clone)) {
                 Some(res) => Ok(res),
                 None => Err(log.client_err(30)),
             },
@@ -756,11 +785,15 @@ impl Price {
                 Some(res) => Ok(res),
                 None => Err(log.client_err(31)),
             },
-            Format::JSON => match FormatJSON::make(&self.items, file, &param.volume, rozn, r3, param.ean) {
+            Format::JSON => match FormatJSON::make(&self.items, file, &param.volume, rozn, r3, param.ean, Arc::clone(&init_clone)) {
                 Some(res) => Ok(res),
                 None => Err(log.client_err(32)),
             },
+        };
+        if cfg!(debug_assertions) {
+            println!("{} Finish format price", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string());
         }
+        res
     }
 
     fn round6(price: f32) -> f32 {

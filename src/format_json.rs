@@ -1,6 +1,6 @@
-use std::{collections::HashMap, fs::{File, rename, read}, io::Write};
+use std::{collections::HashMap, fs::{File, rename, read}, io::Write, sync::{RwLock, Arc}};
 
-use crate::{price::{PriceItem, Show, ValueType}, param::PriceVolume, FILE_BUFFER_CAPACITY, FILE_FLUSH_BUFFER_CAPACITY};
+use crate::{price::{PriceItem, Show, ValueType}, param::PriceVolume, init::Init};
 
 pub struct FormatJSON { }
 
@@ -16,7 +16,9 @@ impl FormatJSON {
         new
     }
 
-    pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool) -> Option<Vec<u8>> {
+    pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool, init: Arc<RwLock<Init>>) -> Option<Vec<u8>> {
+        let init_read = RwLock::read(&init).unwrap();
+
         let mut show = Show::new();
         match volume {
             PriceVolume::Local => {
@@ -54,7 +56,7 @@ impl FormatJSON {
             Ok(file) => file,
             Err(_) => return None,
         };
-        let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
+        let mut data = String::with_capacity(init_read.file_buffer_capacity);
         data.push_str("{");
         for (_, price) in items {
             data.push_str(&format!("\"{}\":{{", price.id));
@@ -68,7 +70,7 @@ impl FormatJSON {
                 }
             }
             data.pop();
-            if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
+            if data.len() > init_read.file_flush_buffer_capacity {
                 if let Err(_) = file.write_all(data.as_bytes()) {
                     return None;
                 }

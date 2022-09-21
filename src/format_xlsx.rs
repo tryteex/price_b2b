@@ -1,9 +1,9 @@
-use std::{collections::{HashMap, hash_map::Entry}, fs::{read, rename}, io::Write};
+use std::{collections::{HashMap, hash_map::Entry}, fs::{read, rename}, io::Write, sync::{Arc, RwLock}};
 
 use chrono::Local;
 use zip::{ZipWriter, write::FileOptions, CompressionMethod};
 
-use crate::{param::PriceVolume, price::{Show, PriceItem, ValueType}, FILE_FLUSH_BUFFER_CAPACITY, FILE_BUFFER_CAPACITY};
+use crate::{param::PriceVolume, price::{Show, PriceItem, ValueType}, init::Init};
 
 pub struct FormatXLSX { }
 
@@ -32,7 +32,9 @@ impl FormatXLSX {
         Some(format!("{}{}", f, s))
     }
 
-    pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool) -> Option<Vec<u8>> {
+    pub fn make(items: &HashMap<u32, PriceItem>, filename: &str, volume: &PriceVolume, rozn: bool, r3: bool, ean: bool, init: Arc<RwLock<Init>>) -> Option<Vec<u8>> {
+        let init_read = RwLock::read(&init).unwrap();
+
         let mut show = Show::new();
         let mut count_shared: u32 = 0;
         let mut dict: HashMap<&str, usize> = HashMap::with_capacity(20 * (items.len()+1));
@@ -176,7 +178,7 @@ impl FormatXLSX {
                 if let Err(_) = zip.write_all(data.as_bytes()) {
                     return None;
                 }
-                let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
+                let mut data = String::with_capacity(init_read.file_buffer_capacity);
                 let mut index: usize = 0;
                 let mut num: usize;
                 let mut count: u32 = 1;
@@ -219,7 +221,7 @@ impl FormatXLSX {
                                 ValueType::Money(v) => data.push_str(&format!("<c r=\"{}{}\" s=\"1\" t=\"n\"><v>{:.2}</v></c>", ind, count, v)),
                                 ValueType::Index(v) => data.push_str(&format!("<c r=\"{}{}\" s=\"3\" t=\"n\"><v>{}</v></c>", ind, count, v)),
                             }
-                            if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
+                            if data.len() > init_read.file_flush_buffer_capacity {
                                 if let Err(_) = zip.write_all(data.as_bytes()) {
                                     return None;
                                 }
@@ -261,10 +263,10 @@ impl FormatXLSX {
                 if let Err(_) = zip.write_all(data.as_bytes()) {
                     return None;
                 }
-                let mut data = String::with_capacity(FILE_BUFFER_CAPACITY);
+                let mut data = String::with_capacity(init_read.file_buffer_capacity);
                 for val in list {
                     data.push_str(&format!("<si><t>{}</t></si>", FormatXLSX::escape_xml(val)));
-                    if data.len() > FILE_FLUSH_BUFFER_CAPACITY {
+                    if data.len() > init_read.file_flush_buffer_capacity {
                         if let Err(_) = zip.write_all(data.as_bytes()) {
                             return None;
                         }

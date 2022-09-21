@@ -5,7 +5,7 @@ use chrono::Local;
 use crate::{go::Go, init::Init, db::DB, log::Log, data::{Auth, World, Targets, Locks, Products, Bg, Store}};
 
 pub const MS1000: std::time::Duration = Duration::from_millis(1000);
-pub const M30: i64 = 30;
+pub const M30: i64 = 25;
 
 #[derive(Debug)]
 pub struct Cache {
@@ -27,6 +27,9 @@ pub struct Cache {
 
 impl Cache {
     pub fn new(go: Arc<Mutex<Go>>, init: Arc<RwLock<Init>>, log: Arc<RwLock<Log>>) -> Arc<Mutex<Cache>> {
+        let i = Arc::clone(&init);
+        let i = RwLock::read(&i).unwrap();
+
         let cache = Arc::new(Mutex::new(Cache {
             thread: None,
             go,
@@ -34,14 +37,14 @@ impl Cache {
             log,
             load: false,
             
-            auth: Arc::new(Mutex::new(Auth::new())),
+            auth: Arc::new(Mutex::new(Auth::new(i.auth_company_capacity, i.auth_user_capacity))),
             kurs: Arc::new(Mutex::new(0.0)),
-            world: Arc::new(Mutex::new(World::new())),
-            target: Arc::new(Mutex::new(Targets::new())),
-            lock: Arc::new(Mutex::new(Locks::new())),
-            product: Arc::new(Mutex::new(Products::new())),
-            stock: Arc::new(Mutex::new(Store::new())),
-            bg: Arc::new(Mutex::new(Bg::new())),
+            world: Arc::new(Mutex::new(World::new(i.country_capacity))),
+            target: Arc::new(Mutex::new(Targets::new(i.target_capacity))),
+            lock: Arc::new(Mutex::new(Locks::new(i.lock_capacity, i.lock_item_capacity))),
+            product: Arc::new(Mutex::new(Products::new(i.product_capacity))),
+            stock: Arc::new(Mutex::new(Store::new(i.stock_capacity, i.stock_product_capacity))),
+            bg: Arc::new(Mutex::new(Bg::new(i.bonus_company_capacity, i.bonus_group_capacity))),
         }));
 
         Cache::start(Arc::clone(&cache));
@@ -58,6 +61,10 @@ impl Cache {
             if Cache::stop(Arc::clone(&cache_thread)) { break; }
 
             if load {
+                if cfg!(debug_assertions) {
+                    println!("{} Start load cache", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
+
                 let init;
                 let log;
                 {
@@ -137,7 +144,9 @@ impl Cache {
                     }
                     thread::sleep(MS1000);
                 }
-
+                if cfg!(debug_assertions) {
+                    println!("{} Finish load cache", chrono::Local::now().format("%Y.%m.%d %H:%M:%S%.9f").to_string())
+                }
                 last = Local::now();
             } else {
                 thread::sleep(MS1000);
@@ -196,7 +205,7 @@ impl Cache {
             WHERE 
                 c.profilesID <> 0 AND c.status='registered' 
                 AND CONCAT(';', c.ApiPermissions, ';') LIKE '%;37;%'
-                AND u.roleID > 0
+                AND u.roleID > 0 AND u.status NOT IN ('blocked', 'deleted')
             ORDER BY u.companyID, u.userID
         ";
         match db.query(sql) {
@@ -349,7 +358,7 @@ impl Cache {
                 p.warranty AS Warranty, p.DDP AS DDP, IFNULL(p.countryID, 0) as Country
             FROM 
                 SC_products p
-            WHERE p.enabled=1 AND (p.statusnew=0 OR p.statusnew=4 OR p.statusnew IS NULL) AND p.isarchive=0 AND p.isdiler=1
+            WHERE p.enabled=1 AND p.Price6 > 0 AND (p.statusnew=0 OR p.statusnew=4 OR p.statusnew IS NULL) AND p.isarchive=0 AND p.isdiler=1
         ";
         match db.query(sql) {
             Some(result) => {
@@ -385,7 +394,7 @@ impl Cache {
                 LEFT JOIN SC_categories c ON p.categoryid=c.categoryid
                 LEFT JOIN SC_classes l ON p.classID=l.classID
                 LEFT JOIN ProductGroup g ON p.ProductGroupID=g.ProductGroupID
-            WHERE p.enabled=1 AND (p.statusnew=0 OR p.statusnew=4 OR p.statusnew IS NULL) AND p.isarchive=0 AND p.isdiler=1
+            WHERE p.enabled=1 AND p.Price6 > 0 AND (p.statusnew=0 OR p.statusnew=4 OR p.statusnew IS NULL) AND p.isarchive=0 AND p.isdiler=1
         ";
         match db.query(sql) {
             Some(result) => {
@@ -406,7 +415,7 @@ impl Cache {
             FROM 
                 SC_products p
                 LEFT JOIN SC_vendors v ON v.vendorID = p.vendorID
-            WHERE p.enabled=1 AND (p.statusnew=0 OR p.statusnew=4 OR p.statusnew IS NULL) AND p.isarchive=0 AND p.isdiler=1
+            WHERE p.enabled=1 AND p.Price6 > 0 AND (p.statusnew=0 OR p.statusnew=4 OR p.statusnew IS NULL) AND p.isarchive=0 AND p.isdiler=1
         ";
         match db.query(sql) {
             Some(result) => {

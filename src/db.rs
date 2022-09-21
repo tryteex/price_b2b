@@ -6,7 +6,7 @@ use crate::{init::DBInit, log::Log};
 
 pub struct DB {
     conn: Conn,
-    log: Arc<RwLock<Log>>,
+    log: Option<Arc<RwLock<Log>>>,
 }
 
 impl DB {
@@ -42,7 +42,33 @@ impl DB {
 
         Some(DB { 
             conn,
-            log: Arc::clone(&log),
+            log: Some(Arc::clone(&log)),
+         })
+    }
+
+    pub fn simple(db: &DBInit) -> Option<DB> {
+         let url: &str = &format!("mysql://{}:{}@{}:{}/{}?tcp_connect_timeout_ms=500", db.user, db.pwd, db.host, db.port, db.name);
+        let opts = match Opts::try_from(url) {
+            Ok(opts) => opts,
+            Err(_) => return None,
+        };
+        let mut conn = match Conn::new(opts) {
+            Ok(conn) => conn,
+            Err(_) => return None,
+        };
+        if let Err(_) = conn.query_drop("SET NAMES 'utf8'") {
+            return None;
+        }
+        if let Err(_) = conn.query_drop("SET CHARACTER SET 'utf8'") {
+            return None;
+        }
+        if let Err(_) = conn.query_drop("SET SESSION collation_connection = 'utf8_general_ci'") {
+            return None;
+        }
+
+        Some(DB { 
+            conn,
+            log: None,
          })
     }
 
@@ -54,8 +80,10 @@ impl DB {
             Ok(result) => Some(result),
             Err(e) => {
                 let result = format!("sql: {}\nErr: {}", text, e.to_string());
-                let log = RwLock::read(&self.log).unwrap();
-                log.write(602, &result);
+                if let Some(l) = &self.log {
+                    let log = RwLock::read(l).unwrap();
+                    log.write(602, &result);
+                }
                 None
             },
         };
